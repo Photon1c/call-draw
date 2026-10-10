@@ -200,3 +200,119 @@ def print_top_organizations(summary: List[Dict], top_n: int = 25) -> None:
         last = record.get("last_seen", "")[:30]
 
         print(f"{org:<40} {calls:<8} {numbers:<10} {first:<30} {last:<30}")
+
+
+def extract_unknown_callers(
+    calls: List[Dict],
+    orgs_path: Path,
+) -> List[Dict]:
+    """
+    Extract unknown callers (no organization label, no caller ID name).
+
+    Groups by number prefix and provides call statistics and sample numbers.
+
+    Args:
+        calls: List of call records (assumed already normalized and filtered)
+        orgs_path: Path to orgs.csv file
+
+    Returns:
+        List of unknown caller records sorted by call count (descending):
+        - prefix: Number prefix (first 6 digits)
+        - call_count: Total calls from this prefix
+        - unique_numbers: Number of unique numbers with this prefix
+        - sample_numbers: Comma-separated list of up to 5 sample numbers
+        - first_seen: Earliest timestamp
+        - last_seen: Latest timestamp
+    """
+    org_map = load_organization_map(orgs_path)
+
+    # Group unknown callers by prefix
+    prefix_data = defaultdict(
+        lambda: {
+            "numbers": set(),
+            "timestamps": [],
+        }
+    )
+
+    for call in calls:
+        number = call.get("number", "")
+        timestamp = call.get("timestamp", "")
+        caller_id = call.get("caller_id_name", "").strip()
+
+        # Skip if has organization label or caller ID
+        if number in org_map or caller_id:
+            continue
+
+        # Extract prefix (first 6 chars, or 3 if shorter)
+        prefix = number[:6] if len(number) >= 6 else number[:3]
+
+        prefix_data[prefix]["numbers"].add(number)
+        if timestamp:
+            prefix_data[prefix]["timestamps"].append(timestamp)
+
+    # Build unknown caller records
+    unknown = []
+    for prefix, data in prefix_data.items():
+        call_count = 0
+        for call in calls:
+            number = call.get("number", "")
+            caller_id = call.get("caller_id_name", "").strip()
+            # Count if no org, no caller_id, and matches prefix
+            if number not in org_map and not caller_id and number.startswith(prefix):
+                call_count += 1
+
+        unique_numbers = len(data["numbers"])
+
+        # Get sample numbers (up to 5)
+        sample_numbers = sorted(list(data["numbers"]))[:5]
+        sample_str = ", ".join(sample_numbers)
+
+        # Find first and last seen
+        if data["timestamps"]:
+            sorted_times = sorted(data["timestamps"])
+            first_seen = sorted_times[0]
+            last_seen = sorted_times[-1]
+        else:
+            first_seen = ""
+            last_seen = ""
+
+        unknown.append(
+            {
+                "prefix": prefix,
+                "call_count": call_count,
+                "unique_numbers": unique_numbers,
+                "sample_numbers": sample_str,
+                "first_seen": first_seen,
+                "last_seen": last_seen,
+            }
+        )
+
+    # Sort by call count descending
+    unknown.sort(key=lambda x: x.get("call_count", 0), reverse=True)
+
+    return unknown
+
+
+def write_unknown_callers_csv(unknown: List[Dict], output_path: Path) -> None:
+    """
+    Write unknown callers report to CSV file.
+
+    Args:
+        unknown: List of unknown caller record dictionaries
+        output_path: Path to output CSV file
+    """
+    columns = [
+        "prefix",
+        "call_count",
+        "unique_numbers",
+        "sample_numbers",
+        "first_seen",
+        "last_seen",
+    ]
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(output_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=columns)
+        writer.writeheader()
+        writer.writerows(unknown)

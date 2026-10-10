@@ -7,6 +7,8 @@ from call_draw.dashboard import (
     generate_summary,
     write_summary_csv,
     print_top_organizations,
+    extract_unknown_callers,
+    write_unknown_callers_csv,
 )
 
 
@@ -14,6 +16,7 @@ def main(
     raw_calls_path: Path = Path("data/raw/calls_raw.txt"),
     processed_path: Path = Path("data/processed/calls.csv"),
     summary_path: Path = Path("data/processed/summary.csv"),
+    unknown_path: Path = Path("data/processed/unknown_callers.csv"),
     orgs_path: Path = Path("data/orgs.csv"),
     contacts_path: Path = None,
 ) -> None:
@@ -24,6 +27,7 @@ def main(
         raw_calls_path: Path to raw Android call log export
         processed_path: Path to write processed calls CSV
         summary_path: Path to write organization summary CSV
+        unknown_path: Path to write unknown callers report CSV
         orgs_path: Path to organization mapping CSV
         contacts_path: Optional path to contacts exclusion CSV
     """
@@ -55,7 +59,15 @@ def main(
     print(f"Writing summary to {summary_path}...")
     write_summary_csv(summary, summary_path)
 
-    # Step 6: Print top 25 to terminal
+    # Step 6: Extract unknown callers
+    print(f"Extracting unknown callers report...")
+    unknown = extract_unknown_callers(normalized_calls, orgs_path)
+
+    # Step 7: Write unknown callers CSV
+    print(f"Writing unknown callers to {unknown_path}...")
+    write_unknown_callers_csv(unknown, unknown_path)
+
+    # Step 8: Print top 25 to terminal
     print_top_organizations(summary, top_n=25)
 
 

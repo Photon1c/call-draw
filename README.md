@@ -97,6 +97,18 @@ Organization-level statistics with columns:
 - `first_seen`: Timestamp of the earliest call from this organization
 - `last_seen`: Timestamp of the most recent call from this organization
 
+### unknown_callers.csv
+
+Report of the most frequent unknown callers (no organization label, no caller ID name), useful for identifying spam patterns. Sorted by call frequency. Columns:
+- `prefix`: First 6 digits of the phone number
+- `call_count`: Total calls from this prefix
+- `unique_numbers`: Number of unique phone numbers with this prefix
+- `sample_numbers`: Up to 5 example phone numbers from this prefix (comma-separated)
+- `first_seen`: Timestamp of the earliest call from this prefix
+- `last_seen`: Timestamp of the most recent call from this prefix
+
+**Tip:** Review the top prefixes in this report and add interesting ones to `data/orgs.csv` with organization labels to track them in future analyses.
+
 ## Testing
 
 Run tests:
